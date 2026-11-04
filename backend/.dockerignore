@@ -1,0 +1,17 @@
+# 构建上下文裁剪 —— backend 镜像上下文是 ./backend（见 docker-compose.yml:53）。
+# 重点排除 .venv（macOS 二进制，进 python:3.12-slim 不可用）与 cloud_platform.db
+# （本地开发库，不应打进镜像）。依赖由 requirements.txt 在镜像内重装。
+# ---------------------------------------------------------------------------
+
+.git
+**/.DS_Store
+
+**/__pycache__
+**/*.py[cod]
+.venv
+venv
+*.db
+.env
+
+Dockerfile
+README.md

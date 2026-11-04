@@ -1,0 +1,41 @@
+# electron-builder 打包配置 —— 云手机群控客户端（计划 D16：出 Windows exe）
+appId: com.cloudphone.pcclient
+productName: 云手机群控客户端
+copyright: Copyright © 2026 CloudPhone Team
+
+directories:
+  output: release
+
+# 只打包主进程文件；Web 前端构建产物作为 extraResources 随包分发
+files:
+  - main.js
+  - preload.js
+  - package.json
+
+# 打包前需先构建 Web 端：cd ../frontend && pnpm run build（或 npm run dist 自动完成）
+extraResources:
+  - from: ../frontend/dist
+    to: frontend
+
+win:
+  target:
+    - nsis      # 标准安装包
+    - portable  # 免安装单文件 exe（演示时拷 U 盘即用）
+  artifactName: "云手机群控客户端-${version}-win-${arch}.${ext}"
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: 云手机群控客户端
+
+portable:
+  artifactName: "云手机群控客户端-${version}-portable.${ext}"
+
+# mac 打包可选（演示机若为 macOS）：npm run dist:mac
+mac:
+  target:
+    - dmg
+  category: public.app-category.utilities

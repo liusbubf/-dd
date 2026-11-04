@@ -1,0 +1,92 @@
+# =============================================================================
+# 【预留 · 默认未启用】Redis 7 —— 会话 / WS 广播总线 / 批量任务队列位
+# -----------------------------------------------------------------------------
+# 状态：本清单未被 deploy/k8s/kustomization.yaml 引用，当前代码也未接入 Redis
+#       （requirements.txt 无 redis 客户端，config.py 无 redis 配置项）。
+#       启用步骤：取消 kustomization.yaml 中 `- redis.yaml` 的注释，
+#       并同步取消 docker-compose.yml 中 redis 服务的注释，保持两处口径一致。
+#
+# 规模化后的设计意图：
+#   - 后端多副本时，WS 广播（device_status/preview/batch_progress）需经 Redis Pub/Sub
+#     跨副本扇出，否则连在副本 A 的前端收不到副本 B 触发的事件。
+#   - 批量/脚本任务的分布式队列与去重锁。
+# 用 Deployment（单副本 + PVC 持久化 AOF）即可起步；要高可用再上 Redis Sentinel/Cluster。
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: cloud-phone
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/part-of: cloud-phone
+spec:
+  selector:
+    app.kubernetes.io/name: redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-data
+  namespace: cloud-phone
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/part-of: cloud-phone
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 5Gi           # 示例值：AOF 持久化盘，按实调
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: cloud-phone
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/part-of: cloud-phone
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate           # 单副本 + RWO PVC，避免滚动时两 Pod 争抢同一卷
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: redis
+        app.kubernetes.io/part-of: cloud-phone
+    spec:
+      containers:
+        - name: redis
+          image: redis:7
+          args: ["redis-server", "--appendonly", "yes"]
+          ports:
+            - name: redis
+              containerPort: 6379
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          # 示例值：需按实测/节点实调
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: redis-data

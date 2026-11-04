@@ -1,0 +1,50 @@
+# =============================================================================
+# 后端水平弹性扩缩（HPA）—— 示例
+# -----------------------------------------------------------------------------
+# 用 autoscaling/v2，按 CPU + 内存利用率扩缩后端副本。
+# 前置条件：集群已装 metrics-server（提供 resource 指标）。
+# 规模化进阶：云手机平台的真实压力尖峰在「批量建机 / 多画面预览 WS 扇出」，
+#   建议后续接 Prometheus Adapter，用自定义指标（活跃 WS 连接数 / 预览帧 QPS）驱动扩缩，
+#   比单纯 CPU 更贴合负载。云手机节点池的扩缩另由 Cluster Autoscaler 按 pending 实例触发。
+# =============================================================================
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend
+  namespace: cloud-phone
+  labels:
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/part-of: cloud-phone
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+  minReplicas: 3
+  maxReplicas: 20            # 示例值：需按实测/节点实调
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 75
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 300   # 缩容更保守，避免 WS 长连接被频繁打断
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60

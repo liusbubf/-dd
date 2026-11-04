@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+<defs><linearGradient id="base" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#FFF"/><stop offset=".58" stop-color="#FAFAFD"/><stop offset="1" stop-color="#E7E8EF"/></linearGradient><linearGradient id="glyph" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#FF625B"/><stop offset="1" stop-color="#D91832"/></linearGradient><linearGradient id="paper" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#FFF"/><stop offset="1" stop-color="#F0F1F6"/></linearGradient></defs>
+<path d="M128 0C25.6 0 0 25.6 0 128s25.6 128 128 128 128-25.6 128-128S230.4 0 128 0Z" fill="url(#base)"/>
+<path d="M53 58h150v48H53Z" fill="url(#glyph)"/><path d="M53 93h150v109H53Z" rx="15" fill="url(#paper)"/>
+<path d="M83 47v27M173 47v27" stroke="#FFF" stroke-width="10" stroke-linecap="round"/><rect x="77" y="116" width="45" height="45" rx="10" fill="#20232B" opacity=".9"/><rect x="134" y="116" width="45" height="18" rx="9" fill="#FFB6B2"/><rect x="134" y="145" width="45" height="18" rx="9" fill="#D8DAE3"/><path d="M128 3C27 3 3 28 3 128" fill="none" stroke="#FFF" stroke-opacity=".7" stroke-width="3"/>
+</svg>

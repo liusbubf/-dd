@@ -1,0 +1,108 @@
+# =============================================================================
+# 平台后端 —— FastAPI（uvicorn app.main:app），监听 8000，API 前缀 /api，WS /api/ws
+# -----------------------------------------------------------------------------
+# 多副本无状态 Deployment；状态全在 postgres/redis，故可水平扩缩（见 hpa.yaml）。
+#
+# ★★★ 关键设计取舍：后端如何操作「分散在各节点上的 redroid 实例」★★★
+# 现状（单机 demo）：backend/app/orchestrator/redroid.py 直接用本机 Docker SDK
+#   （docker.from_env()）起容器，并用本机 adb connect localhost:(5555+id) 下发操控——
+#   这是「后端与 redroid 同处一台宿主」的假设，在多节点 k8s 里不成立
+#   （后端 Pod 与云手机实例不在同一节点、无本机 docker.sock、adb 也连不到别的节点）。
+#
+# 规模化两条落地路线（本仓库推荐 A，B 作为群控/投屏增强）：
+#
+#   方案 A：每节点 device-agent（节点代理） + adb-over-tcp
+#     - 每个云手机节点跑一个特权代理（见 redroid-daemonset.yaml），代理暴露内网 gRPC/HTTP：
+#       create/start/stop/destroy/exec，内部调本节点 Docker/containerd 起 redroid_{id}，
+#       并把每台的 adb 端口（5555+id，hostNetwork）以 adb-over-tcp 暴露给后端。
+#     - 后端把 RedroidBackend 从「本机 docker.sock + 本机 adb」改造成「按 device→node 路由，
+#       调对应节点 agent」：即在 device 记录上多存一个 node/agent 地址，操控走
+#       `adb connect <nodeIP>:(5555+id)` 或经 agent 转发。业务 API 契约、DB、前端零改动。
+#     - 好处：贴合现有 orchestrator 抽象，改动集中在一个 Backend 实现；实例生命周期由 agent 管。
+#
+#   方案 B：STF/DeviceFarmer provider 纳管（deploy/stf/ 已有 compose 版）
+#     - 每节点部署 STF provider，先 `adb connect` 本节点所有实例，由 provider 统一注册到
+#       STF（minicap 投屏 / minitouch 控制）。后端/前端投屏走 STF，操控可仍走 adb-over-tcp。
+#     - 好处：投屏/群控能力开箱即用；成本：多一套 STF+RethinkDB 组件与纳管链路。
+#
+#   （备选）方案 C：每台实例 = 一个 Pod（StatefulSet），后端用 K8s API 直接创建/删除，
+#     adb 经 Pod 的 Service/hostPort 暴露。最“云原生”，但一机一码 props、privileged、
+#     /dev/dri、CoW 卷等需逐 Pod 编排，编排复杂度与调度压力最大——见 redroid-daemonset.yaml 里的对比。
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: cloud-phone
+  labels:
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/part-of: cloud-phone
+spec:
+  selector:
+    app.kubernetes.io/name: backend
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: cloud-phone
+  labels:
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/part-of: cloud-phone
+spec:
+  replicas: 3                 # 多副本无状态；由 HPA 弹性扩缩
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backend
+  strategy:
+    type: RollingUpdate       # 滚动升级，零停机
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: backend
+        app.kubernetes.io/part-of: cloud-phone
+    spec:
+      # 把后端调度到「平台服务节点池」，与云手机节点池物理隔离（互不抢资源）
+      nodeSelector:
+        cloudphone.io/role: platform
+      containers:
+        - name: backend
+          # 由 backend/Dockerfile 构建（python:3.12-slim + uvicorn:8000），推私有仓后替换
+          image: cloudphone/backend:latest
+          imagePullPolicy: IfNotPresent
+          command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: cloud-config     # 非敏感 CLOUD_*
+            - secretRef:
+                name: cloud-secret     # JWT/DB 口令、含口令的 DATABASE_URL
+          # 示例值：需按实测/节点实调（后端偏 IO/协程，CPU 需求随并发 WS 预览帧上升）
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 8000
+            initialDelaySeconds: 20
+            periodSeconds: 15

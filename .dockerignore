@@ -1,0 +1,49 @@
+# 构建上下文裁剪 —— frontend 镜像以「仓库根目录」为上下文（见 docker-compose.yml 的
+# frontend.build.context: .），若不排除宿主 node_modules，pnpm 装出来的软链接会在
+# `COPY frontend/ ./` 时覆盖镜像内 npm 装好的真实目录，报：
+#     cannot replace to directory /app/node_modules/xxx with file
+# 依赖一律由 Dockerfile 内的 npm 重新安装，不从宿主带入。
+# ---------------------------------------------------------------------------
+
+.git
+.gitignore
+.dockerignore
+.githooks
+_attic
+tools
+code_auth.py
+**/.DS_Store
+
+# 本地配置与凭据绝不进镜像
+.env
+**/.env
+auth.local.json
+.code-auth
+**/*.zip
+**/*.tar.gz
+
+# Node：依赖与产物都在镜像内重建
+**/node_modules
+**/dist
+**/dist-ssr
+**/.vite
+**/.pnpm-store
+**/*.local
+
+# Python：宿主 .venv 是 macOS 二进制，进 Linux 镜像必然不可用
+**/__pycache__
+**/*.py[cod]
+**/.venv
+**/venv
+**/*.db
+**/.env
+
+# 前端镜像用不到的客户端工程与素材
+pc-client
+app-client
+assets-ios
+.playwright-mcp
+
+# 文档不参与镜像构建
+docs
+*.md

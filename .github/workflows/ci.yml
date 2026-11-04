@@ -1,0 +1,52 @@
+name: CI
+
+# 说明：本快照没有 .git 仓库，这个工作流只有在你将来 `git init` 并推到 GitHub 后才会生效。
+# 本地等价命令见 README / docs/改造计划.md：
+#   python -m compileall backend/app tools
+#   python -m ruff check backend/app tools --config backend/pyproject.toml
+#   cd backend && python -m pytest tests -q
+#   cd frontend && pnpm install --frozen-lockfile && pnpm run build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: pip install -r backend/requirements-dev.txt
+      - name: Compile
+        run: python -m compileall backend/app tools
+      - name: Lint
+        run: python -m ruff check backend/app tools --config backend/pyproject.toml
+      - name: Test (simulator)
+        working-directory: backend
+        env:
+          CLOUD_DEVICE_BACKEND: simulator
+        run: python -m pytest tests -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        working-directory: frontend
+        run: pnpm run build

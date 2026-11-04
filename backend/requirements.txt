@@ -1,0 +1,17 @@
+# X86 云手机平台 —— 后端运行时依赖（精确锁定，2026-11-04 实测安装成功）
+# 说明：密码哈希使用标准库 hashlib.pbkdf2，避免 bcrypt 原生编译依赖。
+# 升级流程：改这里 → 在干净 venv 里 pip install -r requirements.txt → 跑 pytest tests -q。
+fastapi==0.128.8
+uvicorn[standard]==0.54.0
+sqlalchemy[asyncio]==2.1.8
+aiosqlite==0.22.1          # dev/测试默认库（SQLite）
+asyncpg==0.32.0            # 生产库（PostgreSQL），按 DATABASE_URL 启用
+pydantic==2.12.5
+pydantic-settings==2.16.2
+PyJWT==2.15.1
+python-multipart==0.0.33
+httpx==0.28.1
+python-dotenv==1.2.4       # tools/seed_rbac.py 读取 .env
+# 可选：真实 Redroid 后端需要 Docker SDK（Simulator 模式无需安装）
+# 注：该版本按 7.x 线锁定，Windows 上不安装（marker 排除），Linux 侧安装后请回归真机流程。
+docker==7.1.0 ; platform_system == "Linux"

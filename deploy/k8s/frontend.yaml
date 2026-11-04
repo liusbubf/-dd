@@ -1,0 +1,98 @@
+# =============================================================================
+# 前端 —— Vue3 构建产物由 nginx 托管，反代 /api、/api/ws 到 backend:8000
+# -----------------------------------------------------------------------------
+# 镜像由 frontend/Dockerfile 构建（node:20 构建 → nginx:alpine 托管），容器内监听 80。
+# nginx 配置见 deploy/nginx/default.conf（upstream backend:8000 已与本命名空间 Service 同名自洽）。
+# 无状态，可多副本；对外经 Ingress 暴露。
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: cloud-phone
+  labels:
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/part-of: cloud-phone
+spec:
+  selector:
+    app.kubernetes.io/name: frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: cloud-phone
+  labels:
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/part-of: cloud-phone
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: frontend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: frontend
+        app.kubernetes.io/part-of: cloud-phone
+    spec:
+      nodeSelector:
+        cloudphone.io/role: platform
+      containers:
+        - name: frontend
+          image: cloudphone/frontend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+          # 示例值：需按实测/节点实调（纯静态托管 + 反代，占用很低）
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+# --- Ingress：对外统一入口；/api（含 /api/ws）与静态页都进 frontend，由其 nginx 再分流 ---
+# WebSocket（/api/ws）需要 Ingress Controller 支持连接升级：
+#   - ingress-nginx 默认支持 WS；长连接读超时按需在 annotation 调大。
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cloud-ingress
+  namespace: cloud-phone
+  labels:
+    app.kubernetes.io/part-of: cloud-phone
+  annotations:
+    # 预览帧 WS 长连接：拉长读/写超时（与 deploy/nginx/default.conf 的 3600s 对齐）
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: cloud-phone.example.com     # 示例域名：改成你的域名 / 或去掉走 IP
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80

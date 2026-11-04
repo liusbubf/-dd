@@ -1,0 +1,17 @@
+# =============================================================================
+# 命名空间 —— X86 云手机平台（规模化 / 500 台预研）
+# -----------------------------------------------------------------------------
+# 所有平台组件（后端 / 前端 / postgres / redis / redroid 节点代理）都归入本命名空间，
+# 便于配额（ResourceQuota）、网络策略（NetworkPolicy）、RBAC 统一治理。
+#
+# ⚠️ 预研/设计稿：本目录 YAML 未在真实集群验证，资源值为「单机实测外推」的示例，
+#    上线前需按目标裸机 + host GPU 复测（deploy/scripts/redroid-benchmark.sh）后回填。
+# =============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cloud-phone
+  labels:
+    app.kubernetes.io/part-of: cloud-phone
+    # 供 kube-prometheus / NetworkPolicy 选中本命名空间
+    kubernetes.io/metadata.name: cloud-phone

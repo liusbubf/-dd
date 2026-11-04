@@ -1,0 +1,132 @@
+# X86 云手机平台 —— Demo 编排（Docker Compose）
+# ---------------------------------------------------------------------------
+# 一条命令拉起整套 demo 底座：postgres + backend(FastAPI) + frontend(Vue/nginx)
+# （Redis 为规模化预留组件，当前代码未接入，默认不启动，见下方注释）
+#   docker compose up -d --build
+# 访问：
+#   前端管理系统  http://localhost:5173   （nginx 反代 /api 与 /api/ws 到后端）
+#   后端 API 文档 http://localhost:8000/docs
+#   初始管理员    admin / admin123（由后端首次启动自动播种，见 CLOUD_ADMIN_*）
+#
+# 默认设备后端为 simulator（无需 Docker/内核模块，任意平台可跑通全部主流程）。
+# 要切到真实 Redroid，见文件末尾「切换到 Redroid」注释，或直接看 deploy/README.md。
+# ---------------------------------------------------------------------------
+
+services:
+  # --- PostgreSQL 15：平台主库（设备/分组/脚本/用户）---
+  postgres:
+    image: postgres:15
+    container_name: cloud_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cloud
+      POSTGRES_PASSWORD: cloud
+      POSTGRES_DB: cloud
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"            # 仅调试用；生产可去掉对外暴露
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cloud -d cloud"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # --- Redis 7：预留，未被代码使用 ---
+  # 后端没有任何 redis 客户端依赖（requirements.txt 无 redis，config.py 无 redis 配置项），
+  # 因此默认不启动。等规模化阶段真正落地「WS 广播总线 / 分布式任务队列」时再取消注释，
+  # 并同步启用 deploy/k8s/redis.yaml（两处口径必须一致）。
+  #
+  # redis:
+  #   image: redis:7
+  #   container_name: cloud_redis
+  #   restart: unless-stopped
+  #   command: ["redis-server", "--appendonly", "yes"]
+  #   volumes:
+  #     - redis_data:/data
+  #   ports:
+  #     - "6379:6379"            # 仅调试用
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 20
+
+  # --- 后端：FastAPI（uvicorn app.main:app，监听 8000，API 前缀 /api，WS 在 /api/ws）---
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cloud_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # 设备后端：simulator（默认，任意平台）｜ redroid（Linux + Docker，见下方切换说明）
+      CLOUD_DEVICE_BACKEND: simulator
+      # 数据库：指向本 compose 内的 postgres 服务
+      CLOUD_DATABASE_URL: postgresql+asyncpg://cloud:cloud@postgres:5432/cloud
+      # Redis（预留，未接入代码；规模化启用后取消注释，值需与 k8s configmap 保持一致）
+      # CLOUD_REDIS_URL: redis://redis:6379/0
+      # 鉴权与初始管理员（生产务必修改）
+      CLOUD_JWT_SECRET: change-me-in-production-please
+      CLOUD_ADMIN_USERNAME: admin
+      CLOUD_ADMIN_PASSWORD: admin123
+      # Redroid 参数（仅 CLOUD_DEVICE_BACKEND=redroid 时生效）
+      CLOUD_REDROID_IMAGE: redroid/redroid:12.0.0_64only-latest
+      CLOUD_REDROID_DATA_DIR: /data/redroid
+      CLOUD_REDROID_GPU_MODE: guest
+      # 代理池（一机一码独立出口 IP），JSON 数组，如：
+      # CLOUD_PROXY_POOL: '["socks5://1.2.3.4:1080","http://5.6.7.8:8080"]'
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    # === 切换到 Redroid（仅 Linux 宿主机）===============================
+    # 真实 Redroid 需要后端能操作宿主 Docker 与 adb。推荐做法：
+    #   1) 宿主机先执行 deploy/scripts/host-setup.sh（装内核模块 + docker + adb）
+    #   2) 把上面的 CLOUD_DEVICE_BACKEND 改为 redroid、CLOUD_REDROID_GPU_MODE 改为
+    #      host（Intel/AMD 核显）或保持 guest（软件渲染 / NVIDIA）
+    #   3) 取消下面 volumes / network_mode 注释，让后端容器复用宿主 Docker 与网络：
+    #
+    # volumes:
+    #   - /var/run/docker.sock:/var/run/docker.sock   # 后端通过 Docker SDK 起 redroid_{id} 容器
+    #   - /data/redroid:/data/redroid                 # 与 CLOUD_REDROID_DATA_DIR 对齐
+    # network_mode: host   # 让容器内 adb connect localhost:(5555+id) 命中宿主端口
+    #
+    # 注意：network_mode: host 与上面的 ports 映射互斥，切换时二选一。
+    # 生产更稳妥的方式是「后端直接跑在宿主机」而非容器内，见 deploy/README.md。
+    # ====================================================================
+
+  # --- 前端：Vue3 + Vite 构建产物，由 nginx 托管并反代 /api、/api/ws 到 backend:8000 ---
+  # 构建上下文设为仓库根，以便 Dockerfile 同时 COPY frontend 源码与 deploy/nginx/default.conf。
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: cloud_frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "5173:80"              # 宿主 5173 -> 容器内 nginx 80
+    healthcheck:
+      # 必须写 127.0.0.1 而非 localhost：deploy/nginx/default.conf 的 `listen 80`
+      # 只绑 IPv4，而容器 /etc/hosts 里 localhost 同时解析到 ::1，
+      # BusyBox wget 先试 IPv6 就会 Connection refused，导致容器恒为 unhealthy。
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+volumes:
+  postgres_data:
+  # redis_data:   # 预留：启用 redis 服务时一并恢复
+

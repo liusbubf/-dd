@@ -1,0 +1,37 @@
+# =============================================================================
+# Kustomize 聚合 —— 一键部署 X86 云手机平台（规模化预研）
+# -----------------------------------------------------------------------------
+# 用法：
+#   1) 先据 secret.example.yaml 生成真实 Secret：
+#        cp secret.example.yaml secret.yaml   # 填真实值（勿提交）
+#      （或改用 External Secrets/Vault/SealedSecrets 注入，见 secret.example.yaml）
+#   2) 预览：  kubectl kustomize deploy/k8s
+#   3) 部署：  kubectl apply -k deploy/k8s
+#
+# ⚠️ 预研/设计稿：未在真实集群验证；资源值为单机实测外推的示例，需按目标裸机复测后回填。
+# =============================================================================
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: cloud-phone
+
+# 统一附加标签（不覆盖各资源的 selector 标签）
+labels:
+  - includeSelectors: false
+    pairs:
+      app.kubernetes.io/part-of: cloud-phone
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  # 敏感 Secret：默认引用 example（占位值）。生产请复制为 secret.yaml 填真实值，
+  # 并把下一行改为 - secret.yaml（记得把 secret.yaml 加入 .gitignore）。
+  - secret.example.yaml
+  - postgres.yaml
+  # Redis 为规模化预留组件，当前未被代码使用：默认不部署。
+  # 启用时取消下一行注释，并同步取消 docker-compose.yml 中 redis 服务的注释（两处口径一致）。
+  # - redis.yaml
+  - backend.yaml
+  - frontend.yaml
+  - redroid-daemonset.yaml
+  - hpa.yaml

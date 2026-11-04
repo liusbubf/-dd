@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cloud-phone-backend"
+version = "0.1.0"
+description = "X86 云手机平台后端（FastAPI + 设备编排 + WebSocket 投屏）"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "顺天" }]
+license = { text = "MIT" }
+keywords = ["cloud-phone", "redroid", "fastapi", "scrcpy"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+# 运行时依赖以 requirements.txt 为准（保持单一真相），此处不在 pyproject 中重复声明。
+dependencies = []
+
+[project.urls]
+Homepage = "https://example.com/cloud-phone"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+exclude = ["_attic", ".venv", ".venv-*"]
+
+[tool.ruff.lint]
+# 先只开「一定能自动判定的错误」：语法错误、未定义名、未使用导入。
+# E501（行宽）等风格项不设为阻塞门禁，避免历史文件大面积噪音。
+select = ["E4", "E7", "E9", "F"]
+ignore = ["F403", "F405"]
+
+[tool.ruff.lint.per-file-ignores]
+# load_dotenv() 必须在读取 settings 之前执行，import 只能后置
+"**/config.py" = ["E402"]
+# 历史代码里的单字母变量 / 未使用局部变量，重构时机未到，先不阻塞 CI
+"**/orchestrator/physical.py" = ["E741"]
+"**/orchestrator/redroid.py" = ["E741", "F841"]
+"**/preview.py" = ["F841"]

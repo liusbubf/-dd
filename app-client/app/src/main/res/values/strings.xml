@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">云手机群控</string>
+    <string name="login">登录</string>
+    <string name="server_url">服务器地址</string>
+    <string name="username">用户名</string>
+    <string name="password">密码</string>
+    <string name="devices_title">云手机设备</string>
+    <string name="batch_title">批量操作</string>
+    <string name="open_url">打开网页</string>
+    <string name="send_text">发送文本</string>
+    <string name="logout">退出登录</string>
+</resources>

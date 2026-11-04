@@ -1,0 +1,95 @@
+# =============================================================================
+# PostgreSQL 15 —— 平台主库（设备/分组/脚本/用户）
+# -----------------------------------------------------------------------------
+# 用 StatefulSet + Headless Service + volumeClaimTemplates：
+#   - 有状态：数据必须持久（PVC 随 Pod 稳定绑定，重建不丢库）。
+#   - 稳定网络标识：后端用固定 DNS `postgres:5432` 连接。
+# 规模化提示：500 台矩阵的数据库压力主要是「设备状态高频更新 + WS 广播读」，
+#   单实例足够起步；再涨可上主从（Patroni / CloudNativePG Operator）+ 连接池（pgbouncer）。
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: cloud-phone
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: cloud-phone
+spec:
+  clusterIP: None            # Headless：为 StatefulSet 提供稳定 Pod DNS
+  selector:
+    app.kubernetes.io/name: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: cloud-phone
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: cloud-phone
+spec:
+  serviceName: postgres      # 必须与上面的 Headless Service 同名
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres
+        app.kubernetes.io/part-of: cloud-phone
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: "cloud"
+            - name: POSTGRES_DB
+              value: "cloud"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cloud-secret
+                  key: DB_PASSWORD
+            # 数据目录放到子目录，避免 PVC 根目录 lost+found 干扰初始化
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          # 示例值：需按实测/节点实调（500 台矩阵读写偏高，建议后续压测后上调）
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "cloud", "-d", "cloud"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "cloud", "-d", "cloud"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        # storageClassName: 留空用集群默认；生产建议指定 SSD/本地盘 StorageClass
+        resources:
+          requests:
+            storage: 20Gi     # 示例值：需按实测/数据增长实调

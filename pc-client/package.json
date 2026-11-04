@@ -1,0 +1,23 @@
+{
+  "name": "cloudphone-pc-client",
+  "productName": "云手机群控客户端",
+  "version": "0.1.0",
+  "description": "X86 云手机平台 PC 群控客户端 —— Electron 封装 Web 管理端，对齐魔云腾 Windows 客户端形态（计划 D16）",
+  "main": "main.js",
+  "author": "顺天",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "dev": "cross-env ELECTRON_START_URL=http://localhost:5173 electron .",
+    "start": "electron .",
+    "build:frontend": "pnpm --dir ../frontend run build",
+    "build": "electron-builder --win",
+    "dist": "npm run build:frontend && electron-builder --win",
+    "dist:mac": "npm run build:frontend && electron-builder --mac"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "electron": "^31.3.0",
+    "electron-builder": "^24.13.3"
+  }
+}

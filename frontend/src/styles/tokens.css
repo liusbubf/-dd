@@ -1,0 +1,131 @@
+/* 设计令牌（唯一来源）
+ *
+ * V6 视觉重构：深色品牌蓝体系为默认主题，浅色保留可切换。
+ * 约定：页面与组件一律用 var(--token)，不写死色值/px。
+ * 暗色通过 html.dark 覆盖同一批变量（:root 即深色默认），不维护第二套样式表。
+ * 间距只用 4 的倍数（4/8/12/16/24/32），字号只用 12/13/14/16/20/24。
+ */
+:root {
+  /* 间距 */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+
+  /* 圆角 */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 999px;
+
+  /* 字号 */
+  --font-xs: 12px;
+  --font-sm: 13px;
+  --font-md: 14px;
+  --font-lg: 16px;
+  --font-xl: 20px;
+  --font-2xl: 24px;
+
+  /* 深色品牌蓝（默认） */
+  --color-bg-page: #0a1020;
+  --color-bg-sunken: #070c18;
+  --color-bg-surface: #111a2c;
+  --color-bg-elevated: #16223a;
+  --color-bg-hover: #1c2a44;
+  --color-text-primary: #e8eefc;
+  --color-text-secondary: #a4b3d1;
+  --color-text-muted: #6f7f9c;
+  --color-text-inverse: #0a1020;
+  --color-border: #22314d;
+  --color-border-strong: #2e4166;
+
+  --color-primary: #3d7bff;
+  --color-primary-strong: #2f66e0;
+  --color-primary-weak: rgba(61, 123, 255, 0.14);
+  --color-brand: #3d7bff;
+  --color-brand-2: #22d3ee;
+  --color-success: #22c55e;
+  --color-success-weak: rgba(34, 197, 94, 0.14);
+  --color-warning: #f5a524;
+  --color-warning-weak: rgba(245, 165, 36, 0.14);
+  --color-danger: #f0616d;
+  --color-danger-weak: rgba(240, 97, 109, 0.14);
+  --color-info: #38bdf8;
+  --color-info-weak: rgba(56, 189, 248, 0.14);
+
+  /* 阴影 / 层级 */
+  --shadow-sm: 0 1px 2px rgba(3, 8, 20, 0.4);
+  --shadow-md: 0 8px 24px rgba(3, 8, 20, 0.45);
+  --shadow-lg: 0 18px 48px rgba(3, 8, 20, 0.55);
+  --z-dropdown: 2000;
+  --z-sticky: 2100;
+  --z-modal: 3000;
+
+  /* 外壳 */
+  --color-header-bg: rgba(14, 21, 38, 0.82);
+  --color-tabbar-bg: rgba(14, 21, 38, 0.7);
+  --color-glass-border: rgba(120, 150, 210, 0.14);
+  --color-sidebar-bg: #0c1426;
+  --color-sidebar-text: #a9b8d6;
+  --color-sidebar-active: #8fb6ff;
+  --color-sidebar-hover: rgba(61, 123, 255, 0.1);
+  --color-sidebar-active-bg: linear-gradient(90deg, rgba(61, 123, 255, 0.22), rgba(34, 211, 238, 0.08));
+  --color-sidebar-active-text: #e6efff;
+  --color-sidebar-active-border: rgba(93, 141, 255, 0.35);
+  --color-sidebar-dot: rgba(61, 123, 255, 0.7);
+  --color-accent-gradient: linear-gradient(135deg, #3d7bff, #22d3ee);
+  --color-page-gradient: radial-gradient(1200px 600px at 12% -10%, rgba(61, 123, 255, 0.12), transparent 55%),
+    radial-gradient(900px 480px at 100% 0%, rgba(34, 211, 238, 0.08), transparent 55%), #0a1020;
+  --color-brand-weak: rgba(61, 123, 255, 0.12);
+
+  /* 动效 */
+  --ease-fast: 120ms ease-out;
+  --ease-base: 200ms ease-out;
+}
+
+/* 浅色主题覆盖（仍然走同一批令牌） */
+html:not(.dark) {
+  --color-bg-page: #f3f6fc;
+  --color-bg-sunken: #e9eef8;
+  --color-bg-surface: #ffffff;
+  --color-bg-elevated: #ffffff;
+  --color-bg-hover: #eef3fb;
+  --color-text-primary: #101b2e;
+  --color-text-secondary: #52627e;
+  --color-text-muted: #8494ad;
+  --color-text-inverse: #ffffff;
+  --color-border: #dfe6f2;
+  --color-border-strong: #c8d3e6;
+
+  --color-primary: #2563eb;
+  --color-primary-strong: #1d4ed8;
+  --color-primary-weak: rgba(37, 99, 235, 0.1);
+  --color-brand: #2563eb;
+  --color-brand-2: #0891b2;
+  --color-success: #16a34a;
+  --color-success-weak: rgba(22, 163, 74, 0.1);
+  --color-warning: #d97706;
+  --color-warning-weak: rgba(217, 119, 6, 0.1);
+  --color-danger: #dc2626;
+  --color-danger-weak: rgba(220, 38, 38, 0.1);
+  --color-info: #0284c7;
+  --color-info-weak: rgba(2, 132, 199, 0.1);
+
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-md: 0 8px 24px rgba(16, 24, 40, 0.1);
+  --shadow-lg: 0 18px 48px rgba(16, 24, 40, 0.16);
+
+  --color-header-bg: rgba(255, 255, 255, 0.82);
+  --color-tabbar-bg: rgba(255, 255, 255, 0.75);
+  --color-glass-border: rgba(148, 163, 184, 0.24);
+  --color-page-gradient: radial-gradient(1100px 520px at 10% -10%, rgba(37, 99, 235, 0.08), transparent 55%),
+    radial-gradient(800px 420px at 100% 0%, rgba(8, 145, 178, 0.06), transparent 55%), #f3f6fc;
+  --color-brand-weak: rgba(37, 99, 235, 0.08);
+}
+
+html.dark {
+  color-scheme: dark;
+}

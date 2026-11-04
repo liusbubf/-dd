@@ -1,0 +1,69 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+.venv/
+.venv-local/
+.venv-win/
+venv/
+.venv*/
+
+# ===== 一次性调试脚本（已归档到 _attic/）=====
+_*.py
+_*.bat
+_*.sh
+_*.ps1
+
+# ===== 归档区 =====
+# _attic/ 存放退役的一次性脚本、历史产物与坏包，不参与构建，也不入库。
+# 需要保留时请从 _attic/README.md 了解内容与风险，不要直接提交整个目录。
+_attic/
+
+# ===== 本地配置与凭据（绝不入库）=====
+.env
+auth.local.json
+.code-auth
+.seed_passwords.json
+
+# ===== 云盘上传目录（本地运行产物）=====
+backend/cloud_disk_storage/
+backend/_test_cloud_disk/
+
+# ===== 数据库 =====
+*.db
+
+# ===== 压缩包 / 构建产物 =====
+*.zip
+*.tar.gz
+*.tgz
+dist/
+build/
+dist-ssr/
+*.apk
+
+# ===== Node =====
+node_modules/
+.vite/
+*.local
+
+# ===== Electron =====
+pc-client/out/
+pc-client/dist/
+
+# ===== Android =====
+app-client/**/build/
+app-client/**/.gradle/
+
+# ===== AI 工具本地状态 =====
+.aider*
+.aider-desk/
+.continue/
+
+# ===== OS / 编辑器 =====
+.DS_Store
+.idea/
+.vscode/
+*.log
+.playwright-mcp/
+
+# 例外：Python 包初始化文件不要被上面的 _*.py 规则误伤
+!**/__init__.py

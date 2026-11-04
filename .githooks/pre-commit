@@ -1,0 +1,33 @@
+#!/bin/sh
+# 改代码口令门禁：仅当暂存区包含「业务代码目录」改动时才要求授权。
+# 授权方式：在项目根运行 `python tools/code_auth.py`（有效期 30 分钟），
+# 或在当前环境导出 CODE_AUTH_PASSWORD。
+#
+# 说明：本仓库当前没有 .git，本钩子需 `git init` 后执行 `python tools/install_hooks.py` 才会生效。
+
+set -e
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACMRT | grep -E '^(backend/|frontend/|app-client/|pc-client/|ws-scrcpy/src/)' || true)
+
+if [ -z "$STAGED" ]; then
+  exit 0
+fi
+
+if command -v python >/dev/null 2>&1; then
+  PY=python
+elif command -v python3 >/dev/null 2>&1; then
+  PY=python3
+else
+  echo "[pre-commit] 未找到 python，无法校验改代码授权。" >&2
+  exit 1
+fi
+
+if ! "$PY" tools/code_auth.py --check; then
+  echo "" >&2
+  echo "[pre-commit] 改代码授权校验未通过，提交被拒绝。" >&2
+  echo "  请先运行：python tools/code_auth.py" >&2
+  echo "  （有效期 30 分钟；口令配置见 docs/代码修改授权说明.md）" >&2
+  exit 1
+fi
+
+exit 0

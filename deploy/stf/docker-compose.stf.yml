@@ -1,0 +1,73 @@
+# STF / DeviceFarmer + RethinkDB —— 群控投屏底座（对应计划 D6/D7、PoC D6）
+# ---------------------------------------------------------------------------
+# STF（Smartphone Test Farm，社区维护版 DeviceFarmer）提供：网页投屏(minicap)、
+# 远程控制(minitouch)、拖拽装 APK、远程 adb —— 一套覆盖群控核心能力。
+#
+# 关键点（PoC D6 结论）：STF 原为 USB 物理机设计，纳管 redroid 需让 STF 的
+# adb 环境先 `adb connect ip:5555` 到 redroid 的 TCP 端口。本 compose 用
+# network_mode: host 让 stf 与宿主共享同一个 adb server（宿主已 adb connect 的
+# redroid 会被 STF 直接看到），这是 demo 阶段最省事的纳管方式。
+#
+# 启动：
+#   # 1) 先确保宿主已连上 redroid（示例连 3 台）：
+#   #    adb connect localhost:5555 ; adb connect localhost:5556 ; adb connect localhost:5557
+#   # 2) 设置对外可访问 IP 后拉起：
+#   HOST_IP=$(hostname -I | awk '{print $1}') docker compose -f docker-compose.stf.yml up -d
+#   # 3) 打开后台： http://<HOST_IP>:7100
+#
+# 端口约定：STF Web 7100；provider 端口段 7400-7500；RethinkDB 8080/28015
+# ---------------------------------------------------------------------------
+
+services:
+  # STF 的存储库
+  rethinkdb:
+    image: rethinkdb:2.4
+    container_name: stf_rethinkdb
+    restart: unless-stopped
+    command: ["rethinkdb", "--bind", "all", "--cache-size", "2048"]
+    volumes:
+      - rethinkdb_data:/data
+    ports:
+      - "8080:8080"     # RethinkDB Web 管理台
+      - "28015:28015"   # RethinkDB 驱动端口
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # STF 主服务（local 一体化模式；host 网络便于共享宿主 adb server 与端口段）
+  stf:
+    image: devicefarmer/stf:latest
+    container_name: stf
+    restart: unless-stopped
+    depends_on:
+      rethinkdb:
+        condition: service_healthy
+    # host 网络：与宿主共享 adb server，宿主 adb connect 的 redroid 直接可见。
+    # 注意：host 模式下不能再用 ports 映射，端口即宿主端口（7100 等）。
+    network_mode: host
+    environment:
+      # RethinkDB 连接串（host 网络下走本机 28015）
+      RETHINKDB_PORT_28015_TCP: tcp://127.0.0.1:28015
+    # HOST_IP 由启动命令注入（见文件头）；provider 端口段与 PoC D6 一致
+    command: >
+      stf local
+      --public-ip ${HOST_IP:-127.0.0.1}
+      --provider-min-port 7400
+      --provider-max-port 7500
+
+volumes:
+  rethinkdb_data:
+
+# ---------------------------------------------------------------------------
+# 把 redroid 纳入 STF 的操作要点（PoC D6「⚠️不通过」条目）：
+#   1) 宿主机 adb connect 到每台 redroid 的 TCP 端口：
+#        for p in 5555 5556 5557; do adb connect localhost:$p; done
+#        adb devices        # 确认都是 device 状态
+#   2) STF 与宿主共享 adb server（本 compose 的 host 网络已满足），provider 会
+#      自动把这些 TCP 设备注册进设备列表。
+#   3) 打开 http://<HOST_IP>:7100，设备状态 Ready 即可点进去投屏/控制/装 APK。
+#   4) 若 provider 看不到设备：在 provider 侧手动 adb connect，或把
+#      `adb connect ip:5555` 放进 provider 启动钩子（正式集成点，见计划 D6）。
+# ---------------------------------------------------------------------------

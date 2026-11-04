@@ -1,0 +1,166 @@
+# =============================================================================
+# 云手机实例层 —— redroid 节点代理（device-agent）DaemonSet
+# -----------------------------------------------------------------------------
+# 这是 500 台矩阵真正跑安卓的一层。采用「DaemonSet = 每个云手机节点一个特权代理」的
+# 节点池化模型：代理在本节点内起 N 台 redroid_{id} 容器（密度见下），并暴露 adb-over-tcp
+# 给平台后端（见 backend.yaml 方案 A）。
+#
+# ── 为什么 DaemonSet(节点池化) 而不是「每台实例一个 StatefulSet/Pod」？ ───────────
+#   DaemonSet(本方案，节点池化)                 | StatefulSet-per-instance(每台一 Pod，有状态卷)
+#   ------------------------------------------ | --------------------------------------------
+#   一节点一个特权代理，实例由代理在节点内批量  | 每台云手机=一个有稳定标识+PVC 的 Pod
+#   起停；贴合现有 orchestrator/redroid.py 逻辑 | 最“云原生”，/data 卷天然随 Pod 持久
+#   binder/内核依赖/privileged 只在代理声明一次 | 每 Pod 都要 privileged+binder+/dev/dri，面广
+#   500 台 = ~10 个代理 Pod，调度器压力极小     | 500 台 = 500 个特权 Pod，调度/etcd 压力大
+#   实例不受 K8s 逐个健康探测/驱逐（代理自管）  | 单台可被 K8s 独立探测/滚动，但一机一码 props、
+#                                              |   端口 5555+id、CoW 卷需逐 Pod 模板化，编排重
+#   代价：实例不是一等 K8s 对象，观测要靠代理    | 代价：大规模特权 Pod 的安全面与调度成本
+#   上报                                        |
+#   → 本预研推荐 DaemonSet 起步；若后续要「单台可迁移/单台 SLA」再演进到 per-instance StatefulSet。
+#
+# ── 每节点密度（关键，来自 docs/redroid-real-benchmark.md 单机实测外推）──────────────
+#   单实例稳态内存 ~606 MiB；idle CPU 0.4–1.4%；开网页/冷启 dex2oat 时 CPU 短时冲高。
+#   · 软件渲染（guest，无 GPU / NVIDIA）：CPU 是瓶颈 → 约 20–40 台/节点（保守）
+#   · Intel/AMD 裸机 host GPU（/dev/dri，gpu_mode=host）：渲染卸载到核显 → 约 40–80 台/节点
+#   实际密度以目标裸机复测 deploy/scripts/redroid-benchmark.sh 为准；本 DaemonSet 的 env
+#   REDROID_MAX_PER_NODE 供代理限流，需按复测回填。
+#
+# ── NVIDIA 坑（硬件选型红线）─────────────────────────────────────────────────────
+#   redroid 硬件渲染只认 Intel/AMD 的 Mesa /dev/dri 路径；NVIDIA 闭源驱动不走此路，
+#   只能软件渲染或 QEMU+virtio-gpu（损耗大）。故节点亲和限定 gpu=intel-amd，
+#   别照抄甲方 8×L40S 做渲染节点。
+# =============================================================================
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: redroid-agent
+  namespace: cloud-phone
+  labels:
+    app.kubernetes.io/name: redroid-agent
+    app.kubernetes.io/part-of: cloud-phone
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: redroid-agent
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: redroid-agent
+        app.kubernetes.io/part-of: cloud-phone
+    spec:
+      # 每台实例的 adb 端口 5555+id 直接开在宿主网络，后端 adb connect <nodeIP>:(5555+id)
+      hostNetwork: true
+      # 需要访问节点的容器运行时（起 redroid 子容器）与 adb server
+      hostPID: true
+      # --- 节点亲和：只调度到「Intel/AMD 渲染节点 + 云手机角色」的节点 ---
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: cloudphone.io/role      # 云手机节点池
+                    operator: In
+                    values: ["phone"]
+                  - key: cloudphone.io/gpu        # 渲染能力标签：仅 Intel/AMD 可 host GPU
+                    operator: In
+                    values: ["intel-amd"]
+      # 容忍云手机节点上的专用污点，避免平台/系统负载被调度上来
+      tolerations:
+        - key: cloudphone.io/dedicated
+          operator: Equal
+          value: "phone"
+          effect: NoSchedule
+      containers:
+        - name: redroid-agent
+          # 预研占位镜像：封装 orchestrator/redroid.py 的「本节点起停 + adb 暴露」逻辑为常驻代理。
+          image: cloudphone/redroid-agent:latest
+          imagePullPolicy: IfNotPresent
+          # ★ Redroid 硬前提：privileged（访问 binder / 内核能力）。这是安全边界最大的一处，
+          #   生产应尽量收敛 capabilities 并配 PodSecurity/AppArmor，见 docs/规模化方案.md。
+          securityContext:
+            privileged: true
+          env:
+            - name: CLOUD_REDROID_IMAGE
+              valueFrom:
+                configMapKeyRef:
+                  name: cloud-config
+                  key: CLOUD_REDROID_IMAGE
+            - name: CLOUD_REDROID_GPU_MODE
+              valueFrom:
+                configMapKeyRef:
+                  name: cloud-config
+                  key: CLOUD_REDROID_GPU_MODE
+            - name: CLOUD_REDROID_DATA_DIR
+              value: "/data/redroid"
+            # 本节点最大实例数（限流）——按目标裸机复测回填；示例给软件渲染保守值
+            - name: REDROID_MAX_PER_NODE
+              value: "30"
+          volumeMounts:
+            # binder 内核依赖（Redroid 硬前提）：优先 binderfs；老内核用 /dev/binder*
+            - name: dev-binderfs
+              mountPath: /dev/binderfs
+            # Intel/AMD 核显直通（host GPU 渲染，gpu_mode=host 必需）
+            - name: dev-dri
+              mountPath: /dev/dri
+            # 内核模块（宿主已 modprobe binder_linux；容器内 lsmod/依赖查询用）
+            - name: lib-modules
+              mountPath: /lib/modules
+              readOnly: true
+            # 实例 /data 卷根目录（每台一子目录 inst{id}，与后端 CLOUD_REDROID_DATA_DIR 对齐）
+            - name: redroid-data
+              mountPath: /data/redroid
+            # 让代理能调本节点容器运行时起 redroid 子容器（containerd sock；用 Docker 则换 docker.sock）
+            - name: container-runtime-sock
+              mountPath: /run/containerd/containerd.sock
+          # 代理自身占用很低；★真正吃资源的是它起的 N 台 redroid 实例（不由本 Pod 的 requests 计量），
+          #   节点容量规划请按「单实例 ~1 vCPU / ~1.5–2Gi（示例值，需按实测实调）× 密度」预留。
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+            limits:
+              cpu: "1"
+              memory: "512Mi"
+      volumes:
+        - name: dev-binderfs
+          hostPath:
+            path: /dev/binderfs
+            type: DirectoryOrCreate
+        - name: dev-dri
+          hostPath:
+            path: /dev/dri
+            type: Directory
+        - name: lib-modules
+          hostPath:
+            path: /lib/modules
+            type: Directory
+        - name: redroid-data
+          hostPath:
+            path: /data/redroid          # 生产建议指向本地 NVMe/SSD，并配 CoW 快照（见方案文档）
+            type: DirectoryOrCreate
+        - name: container-runtime-sock
+          hostPath:
+            path: /run/containerd/containerd.sock
+            type: Socket
+# -----------------------------------------------------------------------------
+# 【附：per-instance StatefulSet 参考骨架（备选方案 C，注释形式，不参与本次部署）】
+# 每台云手机=一个 Pod 时，单台的资源与特权大致如下（~1 vCPU / 1.5–2Gi 参考实测）：
+#
+#   spec:
+#     containers:
+#       - name: redroid
+#         image: redroid/redroid:12.0.0_64only-latest
+#         args: ["androidboot.redroid_gpu_mode=host",
+#                "androidboot.redroid_width=720","androidboot.redroid_height=1280",
+#                "androidboot.redroid_dpi=320", "<一机一码 props...>"]
+#         securityContext: { privileged: true }
+#         ports: [ { containerPort: 5555 } ]     # 经 Service/hostPort 暴露 adb
+#         resources:
+#           requests: { cpu: "1",  memory: "1536Mi" }   # 示例值，需按实测实调
+#           limits:   { cpu: "2",  memory: "2Gi" }
+#         volumeMounts: [ { name: data, mountPath: /data },
+#                         { name: dev-dri, mountPath: /dev/dri } ]
+#     volumeClaimTemplates:  # 每台独立 /data 有状态卷（CoW 快照母盘可显著省容量）
+#       - metadata: { name: data }
+#         spec: { accessModes: ["ReadWriteOnce"], resources: { requests: { storage: 6Gi } } }
+# -----------------------------------------------------------------------------

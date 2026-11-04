@@ -1,0 +1,7 @@
+# ws-scrcpy 本地配置 - 连接远程 ADB 设备
+runGoogTracker: true
+runApplTracker: false
+
+server:
+  - secure: false
+    port: 8100

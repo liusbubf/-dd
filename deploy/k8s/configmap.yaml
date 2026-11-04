@@ -1,0 +1,33 @@
+# =============================================================================
+# 平台非敏感配置（CLOUD_* 环境变量）—— 对应 backend/app/config.py
+# -----------------------------------------------------------------------------
+# 只放「非机密」项；JWT 口令、DB 口令、含口令的 DATABASE_URL 一律进 Secret（见 secret.example.yaml）。
+# 后端用 pydantic-settings，env 前缀 CLOUD_，未识别的键会被安全忽略（extra="ignore"）。
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloud-config
+  namespace: cloud-phone
+  labels:
+    app.kubernetes.io/part-of: cloud-phone
+data:
+  # --- 设备后端开关 ---
+  # 规模化最终形态用 redroid（真实 Docker/Redroid）；联调期可临时置 simulator。
+  CLOUD_DEVICE_BACKEND: "redroid"
+
+  # --- Redis（预留，未被代码使用；默认不启用，启用时与 docker-compose.yml 同步）---
+  # CLOUD_REDIS_URL: "redis://redis:6379/0"
+
+  # --- 初始管理员用户名（口令在 Secret 里）---
+  CLOUD_ADMIN_USERNAME: "admin"
+
+  # --- Redroid 参数（device_backend=redroid 时生效；由节点代理下发到实例）---
+  # 生产 GPU 加速：Intel/AMD 裸机走 Mesa /dev/dri → host；NVIDIA/无核显只能 guest（软件渲染）。
+  CLOUD_REDROID_IMAGE: "redroid/redroid:12.0.0_64only-latest"
+  CLOUD_REDROID_DATA_DIR: "/data/redroid"
+  CLOUD_REDROID_GPU_MODE: "host"
+
+  # --- 代理池（一机一码独立出口 IP）JSON 数组；空表示不分配，按需从密管系统注入 ---
+  # 示例：'["socks5://1.2.3.4:1080","http://5.6.7.8:8080"]'
+  CLOUD_PROXY_POOL: "[]"
