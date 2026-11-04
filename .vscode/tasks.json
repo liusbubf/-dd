@@ -1,0 +1,56 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "环境：一键安装依赖",
+      "type": "shell",
+      "command": "bash scripts/dev-setup.sh",
+      "windows": {
+        "command": "powershell -ExecutionPolicy Bypass -File scripts/dev-setup.ps1"
+      },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "启动：后端 + 前端",
+      "type": "shell",
+      "command": "./start-all.sh",
+      "windows": {
+        "command": "start-all.bat"
+      },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "测试：后端 pytest",
+      "type": "shell",
+      "command": "${workspaceFolder}/backend/.venv/bin/python",
+      "args": ["-m", "pytest", "tests", "-q"],
+      "options": { "cwd": "${workspaceFolder}/backend" },
+      "windows": {
+        "command": "${workspaceFolder}\\backend\\.venv\\Scripts\\python.exe",
+        "args": ["-m", "pytest", "tests", "-q"]
+      },
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "检查：ruff + compileall",
+      "type": "shell",
+      "command": "${workspaceFolder}/backend/.venv/bin/python",
+      "args": ["-m", "ruff", "check", "backend/app", "tools", "--config", "backend/pyproject.toml"],
+      "windows": {
+        "command": "${workspaceFolder}\\backend\\.venv\\Scripts\\python.exe",
+        "args": ["-m", "ruff", "check", "backend/app", "tools", "--config", "backend/pyproject.toml"]
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "构建：前端",
+      "type": "shell",
+      "command": "pnpm run build",
+      "options": { "cwd": "${workspaceFolder}/frontend" },
+      "problemMatcher": []
+    }
+  ]
+}

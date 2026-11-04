@@ -32,7 +32,7 @@
 # 1) 后端
 cd backend
 python3 -m venv .venv && source .venv/bin/activate
-pip install fastapi "uvicorn[standard]" "sqlalchemy[asyncio]" aiosqlite pydantic pydantic-settings PyJWT python-multipart httpx
+pip install -r requirements-dev.txt        # 版本已锁定，Python 3.11+
 uvicorn app.main:app --reload            # http://localhost:8000/docs
 
 # 2) 前端（另开终端；用 pnpm，仓库锁文件是 pnpm-lock.yaml。Node 需 ≥ 22.13）
@@ -41,6 +41,11 @@ cd frontend && corepack enable && pnpm install && pnpm run dev # http://localhos
 # 3) 一键验证 8 条验收（后端已启动的前提下）
 cd backend && source .venv/bin/activate && python -m tests.smoke
 ```
+
+不想手动装环境？macOS / Linux 直接 `bash scripts/dev-setup.sh`，再 `bash start-all.sh`
+（后端 :8000、前端 :5173 一起起，Ctrl+C 全停）；Windows 用
+`powershell -ExecutionPolicy Bypass -File scripts\dev-setup.ps1` + `start-all.bat`。
+两个脚本都是幂等的，会自动建 `backend/.venv`、装依赖、从 `.env.example` 生成 `backend/.env`。
 
 `tests/smoke.py` 会自动跑完登录→建 10 台→抽查指纹→预览→单机操控→批量同步→分组→脚本回放，全绿即主流程跑通。
 
@@ -52,6 +57,17 @@ cd backend && source .venv/bin/activate && python -m tests.smoke
 > ⚠️ `tests/smoke.py` 会**批量创建 10 台设备**，只适合 simulator。真机（redroid）环境请用
 > **非破坏性**的 `python acceptance_live.py`：不建机不删机、只用现有在跑的设备核验，
 > 跑完还原设备原来打开的网页；并会检出「有画面但设备其实已失联」的伪装情况。
+
+## IDE 直接测试（VS Code，配置已入库）
+
+仓库自带 `.vscode/` 共享配置，克隆后打开即可：
+
+1. **插件**：首次打开会提示安装推荐插件（Python / Pylance / debugpy / Ruff / Vue Volar / Docker / YAML / REST Client / EditorConfig / GitLens），点「全部安装」即可。
+2. **Python 解释器**：选 `backend/.venv/bin/python`（Windows 为 `backend\.venv\Scripts\python.exe`），测试面板会自动发现 `backend/tests`。
+3. **一键任务**（`Ctrl+Shift+B` 或「终端 → 运行任务」）：`环境：一键安装依赖` → `启动：后端 + 前端` → `测试：后端 pytest` / `检查：ruff + compileall` / `构建：前端`。
+4. **F5 调试**：`后端：FastAPI（调试）`、`后端：pytest（当前文件）`、`前端：Vite Dev`，以及复合配置 `全栈：后端 + 前端`。
+
+已实测（Python 3.11 + pnpm 10）：`pytest tests -q` 115 项全过、`ruff check` 无告警、`pnpm run build` 成功。
 
 ## 一条命令起整套（Docker Compose）
 

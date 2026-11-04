@@ -18,7 +18,6 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import auth
-from ..config import settings
 from ..database import get_db
 from ..models import User
 from ..rbac import ROLE_LEVELS, ROLE_LABELS, record_audit, require_role

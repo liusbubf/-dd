@@ -780,13 +780,13 @@ def _svg_android_home(name: str, fp: dict) -> str:
     week = "一二三四五六日"[now.weekday()]
     date_text = f"{now.month} 月 {now.day} 日 · 周{week}"
     parts = [
-        f'<defs><linearGradient id="awall" x1="0" y1="0" x2="1" y2="1">'
-        f'<stop offset="0%" stop-color="#123a6b"/>'
-        f'<stop offset="45%" stop-color="#0b2545"/>'
-        f'<stop offset="100%" stop-color="#061224"/></linearGradient>'
-        f'<radialGradient id="agl" cx="0.85" cy="0.12" r="0.5">'
-        f'<stop offset="0%" stop-color="#22d3ee" stop-opacity="0.45"/>'
-        f'<stop offset="100%" stop-color="#22d3ee" stop-opacity="0"/></radialGradient></defs>',
+        '<defs><linearGradient id="awall" x1="0" y1="0" x2="1" y2="1">'
+        '<stop offset="0%" stop-color="#123a6b"/>'
+        '<stop offset="45%" stop-color="#0b2545"/>'
+        '<stop offset="100%" stop-color="#061224"/></linearGradient>'
+        '<radialGradient id="agl" cx="0.85" cy="0.12" r="0.5">'
+        '<stop offset="0%" stop-color="#22d3ee" stop-opacity="0.45"/>'
+        '<stop offset="100%" stop-color="#22d3ee" stop-opacity="0"/></radialGradient></defs>',
         f'<rect x="0" y="0" width="{W}" height="{H}" fill="url(#awall)"/>',
         f'<rect x="0" y="0" width="{W}" height="{H}" fill="url(#agl)"/>',
         '<circle cx="60" cy="690" r="150" fill="#3d7bff" opacity="0.10"/>',
@@ -794,11 +794,11 @@ def _svg_android_home(name: str, fp: dict) -> str:
         _a_statusbar(),
         # 日期与天气组件
         f'<text x="24" y="70" font-size="26" fill="#f2f7ff" font-weight="600">{date_text}</text>',
-        f'<text x="24" y="96" font-size="13" fill="#9fb6d9">多云 · 24° · 空气质量 优</text>',
+        '<text x="24" y="96" font-size="13" fill="#9fb6d9">多云 · 24° · 空气质量 优</text>',
         # 演示角标
-        f'<g><rect x="330" y="52" width="90" height="22" rx="11" fill="#f5a524" opacity="0.18"/>'
-        f'<rect x="330" y="52" width="90" height="22" rx="11" fill="none" stroke="#f5a524" stroke-opacity="0.55"/>'
-        f'<text x="375" y="67" font-size="11" fill="#ffcf7a" text-anchor="middle">演示模式 · SIM</text></g>',
+        '<g><rect x="330" y="52" width="90" height="22" rx="11" fill="#f5a524" opacity="0.18"/>'
+        '<rect x="330" y="52" width="90" height="22" rx="11" fill="none" stroke="#f5a524" stroke-opacity="0.55"/>'
+        '<text x="375" y="67" font-size="11" fill="#ffcf7a" text-anchor="middle">演示模式 · SIM</text></g>',
     ]
 
     # 4 列 × 5 行图标网格
@@ -824,7 +824,7 @@ def _svg_android_home(name: str, fp: dict) -> str:
     for x, glyph in zip(dock_x, _A_DOCK):
         parts.append(_a_icon(x, dock_y + 10, 56, "#1f2b45" if glyph != "browser" else "#f8fafc", glyph))
     # 手势条
-    parts.append(f'<rect x="150" y="800" width="140" height="5" rx="2.5" fill="#eef4ff" opacity="0.8"/>')
+    parts.append('<rect x="150" y="800" width="140" height="5" rx="2.5" fill="#eef4ff" opacity="0.8"/>')
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" '
         f'font-family="Roboto,Noto Sans CJK SC,-apple-system,Helvetica,Arial,sans-serif">'

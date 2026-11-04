@@ -1,0 +1,15 @@
+{
+  "recommendations": [
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "ms-python.debugpy",
+    "charliermarsh.ruff",
+    "Vue.volar",
+    "ms-azuretools.vscode-docker",
+    "redhat.vscode-yaml",
+    "humao.rest-client",
+    "EditorConfig.EditorConfig",
+    "eamodio.gitlens"
+  ],
+  "unwantedRecommendations": []
+}

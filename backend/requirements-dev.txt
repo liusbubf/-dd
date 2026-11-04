@@ -1,4 +1,4 @@
 # 开发/CI 依赖（不随运行时镜像安装）
 -r requirements.txt
-pytest==9.2.0
+pytest==9.1.1
 ruff==0.17.3

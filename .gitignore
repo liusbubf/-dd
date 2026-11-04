@@ -42,6 +42,7 @@ dist-ssr/
 
 # ===== Node =====
 node_modules/
+.pnpm-store/
 .vite/
 *.local
 
@@ -61,7 +62,12 @@ app-client/**/.gradle/
 # ===== OS / 编辑器 =====
 .DS_Store
 .idea/
-.vscode/
+# 团队共享的 VS Code 调试/任务/插件配置入库，其余本地设置忽略
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/tasks.json
 *.log
 .playwright-mcp/
 

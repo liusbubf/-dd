@@ -1,0 +1,49 @@
+{
+  // ===== Python / 后端 =====
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestArgs": ["tests"],
+  "python.testing.cwd": "${workspaceFolder}/backend",
+  "python.analysis.extraPaths": ["${workspaceFolder}/backend"],
+  "python.analysis.exclude": ["**/.venv/**", "**/.venv-local/**", "**/_attic/**"],
+  "ruff.configuration": "${workspaceFolder}/backend/pyproject.toml",
+  "ruff.lineLength": 120,
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": false
+  },
+
+  // ===== 前端 =====
+  "[vue]": {
+    "editor.formatOnSave": false
+  },
+  "[javascript]": {
+    "editor.formatOnSave": false
+  },
+
+  // ===== 资源管理器 / 搜索噪音 =====
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/.ruff_cache": true,
+    "**/.pytest_cache": true,
+    "**/_test_*.db": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.venv": true,
+    "**/.venv-local": true,
+    "**/dist": true,
+    "**/_attic": true,
+    "**/.uploads": true,
+    "**/pnpm-lock.yaml": true
+  },
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/.venv*/**": true,
+    "**/dist/**": true
+  },
+
+  // ===== 终端 =====
+  "terminal.integrated.cwd": "${workspaceFolder}"
+}
